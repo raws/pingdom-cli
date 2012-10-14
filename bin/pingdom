@@ -1,0 +1,35 @@
+#!/usr/bin/env ruby
+
+require "json"
+require "json_select"
+require "pingdom"
+require "thor"
+
+unless ENV["PINGDOM_USERNAME"] && ENV["PINGDOM_PASSWORD"]
+  STDERR.puts "error: please set PINGDOM_USERNAME and PINGDOM_PASSWORD"
+  exit 1
+end
+
+class PingdomCLI < Thor
+  desc "probes [PATH]", "List Pingdom probe server IP addresses"
+  def probes(path = nil)
+    response = api.probes
+    if response.code == 200
+      ip_addresses = JSONSelect(".ip").matches(response.parsed_response)
+      io = path ? open(path, "w") : STDOUT
+      JSON.dump(ip_addresses, io)
+      io.close if path
+    else
+      STDERR.puts "error: received HTTP #{response.code} from Pingdom: #{response.parsed_response.inspect}"
+      exit 1
+    end
+  end
+
+  private
+
+  def api
+    @api ||= Pingdom::API.new(ENV["PINGDOM_USERNAME"], ENV["PINGDOM_PASSWORD"])
+  end
+end
+
+PingdomCLI.start(ARGV)
